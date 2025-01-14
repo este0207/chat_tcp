@@ -1,0 +1,4 @@
+#define MAX_CLIENTS 100
+#define BUFFER_SIZE 1024
+#define MAX_ROOMS 10
+#define ROOM_NAME_SIZE 50
