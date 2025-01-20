@@ -55,6 +55,9 @@ Pour exécuter ce projet, vous avez besoin de :
 - **Client** : Crée une connexion à l'aide d'un socket et communique avec le serveur.
 - **Protocoles** : Basé sur TCP pour assurer une communication fiable.
 
+
+<img src="ULM.jpeg" alt=" Diagramm ULM " />
+
 ## Auteurs
 
 - Esteban Houppermans
