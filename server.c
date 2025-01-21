@@ -35,6 +35,7 @@ void send_message(int socket, const char *message)
     send(socket, message, strlen(message), 0);
 }
 
+// Fonction pour envoyer un message à un client spécifique
 void broadcast_message(const char *message, const char *room_name, int sender_id)
 {
     pthread_mutex_lock(&lock);
@@ -55,7 +56,7 @@ void broadcast_message(const char *message, const char *room_name, int sender_id
     }
     pthread_mutex_unlock(&lock);
 }
-
+// Fonction pour supprimer un client de toutes les rooms
 void remove_client_from_rooms(int client_id)
 {
     for (int i = 0; i < room_count; i++)
@@ -75,6 +76,7 @@ void remove_client_from_rooms(int client_id)
     }
 }
 
+// Fonction pour lister les rooms
 void list_rooms(int client_socket)
 {
     char list[BUFFER_SIZE] = "Rooms:\n";
@@ -92,9 +94,11 @@ void list_rooms(int client_socket)
 void *handle_client(void *arg)
 {
     int client_id = *(int *)arg;
+    // Libérer la mémoire
     free(arg);
 
     char name[BUFFER_SIZE];
+    // Recevoir le nom d'utilisateur
     int bytes_received = recv(clients[client_id].socket, name, BUFFER_SIZE, 0);
     if (bytes_received <= 0)
     {
@@ -105,10 +109,14 @@ void *handle_client(void *arg)
     printf("Client %d connecté sous le nom d'utilisateur %s.\n", client_id, name);
 
     char buffer[BUFFER_SIZE], room_name[ROOM_NAME_SIZE] = "";
+    // Boucle principale
     while (1)
     {
+        // Vider le buffer
         memset(buffer, 0, BUFFER_SIZE);
+        // Recevoir le message
         int bytes_received = recv(clients[client_id].socket, buffer, BUFFER_SIZE, 0);
+        // Si erreur, déconnecter le client
         if (bytes_received <= 0)
         {
             printf("Client %d déconnecté.\n", client_id);
@@ -118,12 +126,13 @@ void *handle_client(void *arg)
             pthread_mutex_unlock(&lock);
             break;
         }
-
         buffer[bytes_received] = '\0';
+        // Vérifier la commande /create
         if (strncmp(buffer, "/create", 7) == 0)
         {
             sscanf(buffer, "/create %s", room_name);
             pthread_mutex_lock(&lock);
+            // Vérifier si il reste de la place pour une room
             if (room_count < MAX_ROOMS)
             {
                 strcpy(rooms[room_count].name, room_name);
@@ -161,50 +170,16 @@ void *handle_client(void *arg)
         }
         else if (strncmp(buffer, "/exit", 5) == 0)
         {
-            send_message(clients[client_id].socket, "Vous êtes déconnecté.\n");
-            close(clients[client_id].socket);
-            pthread_mutex_lock(&lock);
-            remove_client_from_rooms(client_id);
-            pthread_mutex_unlock(&lock);
-            break;
-        }
-        else if (strncmp(buffer, "/leave", 6) == 0)
-        {
-            pthread_mutex_lock(&lock);
-            int room_id = -1;
-            for (int i = 0; i < room_count; i++)
-            {
-                for (int j = 0; j < rooms[i].client_count; j++)
-                {
-                    if (rooms[i].clients[j] == client_id)
-                    {
-                        room_id = i;
-                        break;
-                    }
-                }
-                if (room_id != -1)
-                {
-                    break;
-                }
-            }
-            if (room_id != -1)
-            {
-                for (int i = 0; i < rooms[room_id].client_count; i++)
-                {
-                    if (rooms[room_id].clients[i] == client_id)
-                    {
-                        for (int j = i; j < rooms[room_id].client_count - 1; j++)
-                        {
-                            rooms[room_id].clients[j] = rooms[room_id].clients[j + 1];
-                        }
-                        rooms[room_id].client_count--;
-                        break;
-                    }
-                }
-            }
-            pthread_mutex_unlock(&lock);
+                send_message(clients[client_id].socket, "Vous vous etes deconnectez.\n");
+                pthread_mutex_lock(&lock);
+                remove_client_from_rooms(client_id);
+                pthread_mutex_unlock(&lock);
+                strcpy(clients[client_id].room, "");
+                close(clients[client_id].socket);
         }
 
+
+        // Si aucune commande, envoyer le message à la room
         else
         {
             char message[BUFFER_SIZE];
@@ -218,6 +193,7 @@ void *handle_client(void *arg)
 // Serveur principal
 int main(int argc, char *argv[])
 {
+    // Initialisation du serveur
     int server_socket;
     struct sockaddr_in server_addr, client_addr;
     socklen_t addr_size;
@@ -227,6 +203,7 @@ int main(int argc, char *argv[])
     server_addr.sin_port = htons(8080);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
+    // Lier le socket au port 8080
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("Erreur lors du bind");
@@ -236,6 +213,7 @@ int main(int argc, char *argv[])
     printf("Serveur en marche sur le port 8080.\n");
 
     pthread_mutex_init(&lock, NULL);
+    // Boucle principale
     while (1)
     {
         addr_size = sizeof(client_addr);
@@ -247,6 +225,7 @@ int main(int argc, char *argv[])
         }
 
         pthread_mutex_lock(&lock);
+        // Vérifier si le serveur est plein
         if (client_count >= MAX_CLIENTS)
         {
             send_message(client_socket, "Serveur plein.\n");
@@ -255,11 +234,13 @@ int main(int argc, char *argv[])
             continue;
         }
 
+        // Ajouter le client
         clients[client_count].id = client_count;
         clients[client_count].socket = client_socket;
         strcpy(clients[client_count].room, "");
         printf("Client %d connecté.\n", client_count);
 
+        // Créer un thread pour gérer le client
         pthread_t thread;
         int *client_id = malloc(sizeof(int));
         *client_id = client_count++;
